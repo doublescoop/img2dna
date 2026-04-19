@@ -219,7 +219,7 @@
       perChunk.push(rows.length);
       allRows.push(...rows);
     }
-    return { allRows, perChunk };
+    return { allRows, perChunk, totalBases: cleaned.length };
   }
 
   // ══════════════════════════════ TABS ═══════════════════════════════════
@@ -259,7 +259,7 @@
       return;
     }
     const t0 = performance.now();
-    const { allRows, perChunk } = decodeDna(text, W, GR_K);
+    const { allRows, perChunk, totalBases } = decodeDna(text, W, GR_K);
     const elapsed = (performance.now() - t0).toFixed(0);
 
     if (allRows.length === 0) {
@@ -267,7 +267,7 @@
       const ctx = decCanvas.getContext("2d");
       ctx.fillStyle = "white"; ctx.fillRect(0, 0, W, 1);
       decStats.textContent =
-        `No rows decoded from ${perChunk.length} candidate chunk(s). ` +
+        `${totalBases.toLocaleString()} DNA bases · ${perChunk.length} candidate chunk(s) · no rows decoded. ` +
         `Check W=${W}, GR_K=${GR_K}, MARKER=${MARKER}.`;
       return;
     }
@@ -282,8 +282,8 @@
     }
     ctx.putImageData(imgData, 0, 0);
     decStats.textContent =
-      `${perChunk.length} chunk(s) found  ·  rows per chunk: [${perChunk.join(", ")}]  ·  ` +
-      `${H} rows painted × ${W} cols  ·  ${elapsed} ms`;
+      `${totalBases.toLocaleString()} DNA bases  ·  ${perChunk.length} chunk(s)  ·  ` +
+      `rows per chunk: [${perChunk.join(", ")}]  ·  ${H} rows painted × ${W} cols  ·  ${elapsed} ms`;
   }
   decIn.addEventListener("input", renderDecode);
   decWidth.addEventListener("input", renderDecode);
