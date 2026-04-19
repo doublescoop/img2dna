@@ -1,39 +1,76 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>img2dna — image ↔ DNA</title>
   <link rel="stylesheet" href="./css/style.css" />
 </head>
+
 <body>
   <header>
     <h1>img2dna</h1>
-    <p>Encode a black-and-white image as DNA, decode DNA back to an image. Entirely client-side.</p>
+    <p>Encode a black-and-white image as <span class="jargon" data-term="dna">DNA</span>, decode DNA back to an image.
+      Entirely client-side.</p>
     <p class="constants">
-      <b>W</b>=image width ·
-      <b>GR_K</b>=5 ·
-      <b>MARKER</b>=<code>TCCG</code> ·
-      <b>FSM map</b> (<a href="#" onclick="document.getElementById('fsm-details').open=true;document.getElementById('fsm-details').scrollIntoView({behavior:'smooth'});return false;">see below</a>) ·
-      per-strand header: guard(1b) + salt(16b)
+      <b><span class="jargon" data-term="w">W</span></b>=image width ·
+      <b><span class="jargon" data-term="gr-k">GR_K</span></b>=5 ·
+      <b><span class="jargon"
+          data-term="marker">MARKER</span></b>=<code><span class="jargon" data-term="marker">TCCG</span></code> ·
+      <b><span class="jargon" data-term="fsm">FSM map</span></b> ·
+      per-strand <span class="jargon" data-term="header">header</span>: <span class="jargon"
+        data-term="guard">guard(1b)</span> + <span class="jargon" data-term="salt">salt(16b)</span>
     </p>
 
     <details id="fsm-details" class="fsm-box">
-      <summary><b>FSM map</b> — how bits become bases (and back)</summary>
+      <summary><b>FSM map </b> how bits become DNA bases (and back)</summary>
       <div class="fsm-content">
-        <p>Bits are grouped into base-3 digits (trits) and each trit picks the next DNA base according to the previous one. The rule guarantees no base is ever repeated (no AA/CC/GG/TT) and keeps GC% balanced.</p>
+        <p><span class="jargon" data-term="bit">Bits</span> are grouped into base-3 digits (<span class="jargon"
+            data-term="trit">trits</span>), and each trit picks the next DNA <span class="jargon"
+            data-term="base">base</span> according to the previous one. The rule guarantees no base is ever repeated (no
+          AA/CC/GG/TT) and keeps <span class="jargon" data-term="gc">GC%</span> balanced. This exact logic should be
+          used to encode/decode in this project.</p>
         <table class="fsm-table">
           <thead>
-            <tr><th>previous base</th><th>trit = 0</th><th>trit = 1</th><th>trit = 2</th></tr>
+            <tr>
+              <th>previous base</th>
+              <th>trit = 0</th>
+              <th>trit = 1</th>
+              <th>trit = 2</th>
+            </tr>
           </thead>
           <tbody>
-            <tr><td><b>A</b></td><td>C</td><td>G</td><td>T</td></tr>
-            <tr><td><b>C</b></td><td>G</td><td>T</td><td>A</td></tr>
-            <tr><td><b>G</b></td><td>T</td><td>A</td><td>C</td></tr>
-            <tr><td><b>T</b></td><td>A</td><td>C</td><td>G</td></tr>
+            <tr>
+              <td><b>A</b></td>
+              <td>C</td>
+              <td>G</td>
+              <td>T</td>
+            </tr>
+            <tr>
+              <td><b>C</b></td>
+              <td>G</td>
+              <td>T</td>
+              <td>A</td>
+            </tr>
+            <tr>
+              <td><b>G</b></td>
+              <td>T</td>
+              <td>A</td>
+              <td>C</td>
+            </tr>
+            <tr>
+              <td><b>T</b></td>
+              <td>A</td>
+              <td>C</td>
+              <td>G</td>
+            </tr>
           </tbody>
         </table>
-        <p class="fsm-note">First base (no previous): <code>trit 0 → A</code>, <code>trit 1 → C</code>, <code>trit 2 → G</code>. To decode, look up the row for the previous base and read the column whose cell equals the current base — that column index is the trit.</p>
+        <p class="fsm-note">First base (no previous): <code>trit 0 → A</code>, <code>trit 1 → C</code>,
+          <code>trit 2 → G</code>. To decode, look up the row for the previous base and read the column whose cell
+          equals the current base — that column index is the trit.
+        </p>
       </div>
     </details>
   </header>
@@ -41,6 +78,7 @@
   <nav class="tabs">
     <button class="tab" data-tab="decode">Decode</button>
     <button class="tab" data-tab="encode">Encode</button>
+    <button class="glossary-toggle" id="glossary-toggle" title="Open glossary (Esc to close)">? Glossary</button>
   </nav>
 
   <main>
@@ -50,15 +88,23 @@
       <div class="row">
         <div class="card">
           <h2>Paste DNA</h2>
-          <textarea id="dec-input" placeholder="Paste DNA — a single strand, many strands, the full concatenated DNA string, or a FASTA file. The decoder drops FASTA/comment headers, keeps only A/C/G/T, splits on TCCG, and paints each chunk top-to-bottom."></textarea>
+          <p class="muted" style="margin:0 0 8px 0;">
+            Paste a <span class="jargon" data-term="strand">strand</span>, many strands, the full
+            <span class="jargon" data-term="dna-string">DNA string</span>, or a
+            <span class="jargon" data-term="fasta">FASTA</span> file.
+            The decoder strips FASTA/comment headers, keeps only A/C/G/T, splits on
+            <span class="jargon" data-term="marker">TCCG</span>, and paints each
+            <span class="jargon" data-term="chunk">chunk</span> top-to-bottom.
+          </p>
+          <textarea id="dec-input" placeholder="Paste DNA here…"></textarea>
 
           <label class="field" for="dec-width">
-            <span>Image width (W)</span>
+            <span><span class="jargon" data-term="w">Image width (W)</span></span>
             <input type="number" id="dec-width" value="200" min="1" max="4096" style="width:90px" />
           </label>
 
           <div class="btn-row">
-            <label class="ghost" style="padding:8px 16px;border:1px solid var(--line);border-radius:4px;cursor:pointer;">
+            <label class="ghost" style="padding:8px 16px;border:1px solid var(--line);cursor:pointer;">
               Load file…
               <input type="file" id="dec-file" accept=".txt,.fasta,.fa,.fna,text/plain" hidden />
             </label>
@@ -68,20 +114,21 @@
           <p class="status" id="dec-stats">Paste DNA to render.</p>
 
           <details>
-            <summary>How decoding works (index-card spec)</summary>
+            <summary>decoding steps under the hood</summary>
             <div class="content">1. Keep only A/C/G/T (uppercase).
-2. Split on TCCG — each piece is one chunk.
-3. For each piece:
-   a. Convert DNA → trits using the FSM
-   b. Trits → bits (base-3 to binary)
-   c. Skip leading zeros; first '1' is the guard
-   d. Next 16 bits = salt
-   e. XOR the rest with salt (repeating every 16 bits)
-   f. Loop: read 1 bit = row start color;
-      GR-decode runs until they sum to W pixels;
-      paint that row with alternating colors
-4. Paint rows top-to-bottom on a white canvas.
-Undecodable chunks are skipped. Unpainted pixels stay white.</div>
+              2. Split on TCCG — each piece is one chunk
+              (see <span class="jargon" data-term="chunk-boundary">chunk boundary</span>).
+              3. For each piece:
+              a. Convert DNA → trits using the FSM
+              b. Trits → bits (base-3 to binary)
+              c. Skip leading zeros; first '1' is the guard
+              d. Next 16 bits = salt
+              e. <span class="jargon" data-term="xor">XOR</span> the rest with salt (repeating every 16 bits)
+              f. Loop: read 1 bit = row start color;
+              GR-decode runs until they sum to W pixels;
+              paint that <span class="jargon" data-term="row">row</span> with alternating colors
+              4. Paint rows top-to-bottom on a white canvas.
+              Undecodable chunks are skipped. Unpainted pixels stay white.</div>
           </details>
         </div>
 
@@ -90,7 +137,13 @@ Undecodable chunks are skipped. Unpainted pixels stay white.</div>
           <div class="canvas-wrap">
             <canvas id="dec-canvas" width="200" height="1"></canvas>
           </div>
-          <p class="muted">Rows paint in the order they appear in the pasted text. Drop chunks, rearrange, or paste partial DNA — only the rows you have will render.</p>
+          <p class="muted">
+            Rows appear in <span class="jargon" data-term="paint-order">paint order</span> — the
+            sequence they show up in your pasted text.
+            <span class="jargon" data-term="partial-decoding">Partial decoding</span> including at least one chunk
+            starting with the Marker is fine:
+            drop chunks, rearrange, or paste a fragment — only the rows you have will render.
+          </p>
         </div>
       </div>
     </section>
@@ -99,19 +152,25 @@ Undecodable chunks are skipped. Unpainted pixels stay white.</div>
     <section class="panel" data-panel="encode">
       <div class="row">
         <div class="card">
-          <h2>Source image</h2>
+          <h2><span class="jargon" data-term="source-image">Source image</span></h2>
           <input type="file" id="enc-file" accept="image/*" />
 
-          <label class="field"><span>Contrast</span><span class="val" id="enc-contrast-val">3</span></label>
+          <label class="field"><span><span class="jargon" data-term="contrast">Contrast</span></span><span class="val"
+              id="enc-contrast-val">3</span></label>
           <input type="range" id="enc-contrast" min="1" max="8" step="0.5" value="3" />
 
-          <label class="field"><span>Threshold</span><span class="val" id="enc-threshold-val">64</span></label>
+          <label class="field"><span><span class="jargon" data-term="threshold">Threshold</span></span><span class="val"
+              id="enc-threshold-val">64</span></label>
           <input type="range" id="enc-threshold" min="0" max="255" step="1" value="64" />
 
-          <label class="field"><span>Target width (px)</span><span class="val" id="enc-min-width-val">200</span></label>
+          <label class="field"><span><span class="jargon" data-term="target-width">Target width</span> (<span
+                class="jargon" data-term="pixel">px</span>)</span><span class="val"
+              id="enc-min-width-val">200</span></label>
           <input type="range" id="enc-min-width" min="100" max="800" step="10" value="200" />
 
-          <label class="field"><span>Target body bits/chunk</span><span class="val" id="enc-target-bits-val">1500</span></label>
+          <label class="field"><span><span class="jargon" data-term="target-bits">Target body bits</span>/<span
+                class="jargon" data-term="chunk">chunk</span></span><span class="val"
+              id="enc-target-bits-val">1500</span></label>
           <input type="range" id="enc-target-bits" min="500" max="4000" step="100" value="1500" />
 
           <div class="canvas-wrap" style="margin-top:12px;">
@@ -122,18 +181,37 @@ Undecodable chunks are skipped. Unpainted pixels stay white.</div>
             <button id="enc-encode-btn" disabled>Generate DNA</button>
           </div>
           <p class="status" id="enc-status">Load an image to preview.</p>
+
+          <details>
+            <summary>How encoding works</summary>
+            <div class="content">1. <span class="jargon" data-term="binarization">Binarize</span> (grayscale →
+              black/white using contrast + threshold).
+              2. <span class="jargon" data-term="rle">RLE</span>: describe each <span class="jargon"
+                data-term="row">row</span> as "K black, M white, …".
+              3. <span class="jargon" data-term="gr">Golomb-Rice</span>: pack those run lengths into a bit-string.
+              4. Pack rows into chunks of ~target body bits.
+              5. For each chunk, <span class="jargon" data-term="salt-search">salt-search</span>: try 16-bit salts
+              (<span class="jargon" data-term="xor">XOR</span>) until the
+              resulting DNA is <span class="jargon" data-term="bio-safety">bio-safe</span> — balanced <span
+                class="jargon" data-term="gc">GC%</span> and no <span class="jargon" data-term="restriction">restriction
+                sites</span>.
+              6. Output each chunk as DNA, joined by the TCCG marker.</div>
+          </details>
         </div>
 
         <div class="card">
           <h2>Output DNA</h2>
           <div id="enc-results" hidden>
-            <label class="field"><span>FASTA (one record per chunk)</span></label>
+            <label class="field"><span><span class="jargon" data-term="fasta">FASTA</span> (one record per
+                chunk)</span></label>
             <textarea id="enc-fasta" readonly style="min-height:140px;"></textarea>
             <div class="btn-row">
               <button class="ghost" id="enc-download-fasta">Download FASTA</button>
             </div>
 
-            <label class="field" style="margin-top:12px;"><span>DNA string (concatenated, with markers)</span></label>
+            <label class="field" style="margin-top:12px;"><span><span class="jargon" data-term="dna-string">DNA
+                  string</span> (concatenated, with <span class="jargon"
+                  data-term="marker">markers</span>)</span></label>
             <textarea id="enc-string" readonly style="min-height:140px;"></textarea>
             <div class="btn-row">
               <button class="ghost" id="enc-copy-string">Copy DNA</button>
@@ -142,8 +220,9 @@ Undecodable chunks are skipped. Unpainted pixels stay white.</div>
           </div>
           <p class="muted" id="enc-hint">
             The DNA string looks like <code>TCCG…TCCG…TCCG…</code>. Paste it into the Decode tab
-            to verify the round-trip. Width (W) printed in the status is the number you
-            should use when decoding.
+            to verify the round-trip. The <span class="jargon" data-term="w">W</span> value printed in the status is the
+            width
+            you should use when decoding.
           </p>
         </div>
       </div>
@@ -151,6 +230,174 @@ Undecodable chunks are skipped. Unpainted pixels stay white.</div>
 
   </main>
 
+  <!-- ═══════════════════════════════════ GLOSSARY ════════════════════════════════ -->
+  <aside class="glossary" id="glossary" aria-hidden="true">
+    <div class="glossary-header">
+      <h2>Glossary</h2>
+      <button class="glossary-close" id="glossary-close" aria-label="Close glossary">×</button>
+    </div>
+    <div class="glossary-body">
+
+      <h3>Fundamentals (both tabs)</h3>
+      <dl>
+        <dt id="g-dna">DNA</dt>
+        <dd>A molecule that stores information as a sequence of four letters: A, C, G, T. In this app, DNA is just text
+          — you can paste it, copy it, and it'll print the same on any screen.</dd>
+
+        <dt id="g-base">Base</dt>
+        <dd>One letter of DNA: <code>A</code>, <code>C</code>, <code>G</code>, or <code>T</code>. Everything we do here
+          is ultimately a string of bases.</dd>
+
+        <dt id="g-pixel">Pixel</dt>
+        <dd>One dot in the image. Here each pixel is either black or white (no grays).</dd>
+
+        <dt id="g-row">Row</dt>
+        <dd>One horizontal line of pixels in the image. Every row is exactly <em>W</em> pixels wide.</dd>
+
+        <dt id="g-bit">Bit</dt>
+        <dd>A single <code>0</code> or <code>1</code>. Computers store everything as bits.</dd>
+
+        <dt id="g-trit">Trit</dt>
+        <dd>Like a bit, but with three possible values instead of two: <code>0</code>, <code>1</code>, or
+          <code>2</code>. We use trits as a stepping stone between bits and DNA bases (since we skip one of the four
+          bases at each position, three choices remain).
+        </dd>
+
+        <dt id="g-fsm">FSM map</dt>
+        <dd>The lookup table that turns a trit into the next DNA base, given the previous base. Shown as a table at the
+          top of the page. Its job: guarantee no two adjacent bases are equal, which helps keep the DNA balanced and
+          stable.</dd>
+
+        <dt id="g-marker">Marker (TCCG)</dt>
+        <dd>A four-letter DNA pattern we insert between chunks so the decoder can find chunk boundaries.
+          <code>TCCG</code> contains <code>CC</code>, which the FSM never produces, so the marker can't accidentally
+          appear inside a chunk. (@Sebastian- let me know if other marking is preferred!)
+        </dd>
+
+        <dt id="g-chunk">Chunk</dt>
+        <dd>One piece of the image encoded as a short DNA strand. Each chunk carries a group of consecutive rows plus a
+          small header. Chunks are independent — missing or scrambled ones don't corrupt the others.</dd>
+
+        <dt id="g-strand">Strand</dt>
+        <dd>A single DNA molecule. In this app, one strand = one chunk. If you ask a lab to synthesize DNA, they'll
+          return one molecule per chunk.</dd>
+
+        <dt id="g-header">Header</dt>
+        <dd>Tiny metadata at the start of each chunk: 1 guard bit + 16 salt bits = 17 bits total. The decoder reads the
+          header before the body to know how to unscramble what follows.</dd>
+
+        <dt id="g-guard">Guard bit</dt>
+        <dd>A leading <code>1</code> bit placed at the very front of each chunk. Without it, any zero bits at the start
+          would get silently lost when converting between bits and base-3 numbers.</dd>
+
+        <dt id="g-salt">Salt</dt>
+        <dd>A 16-bit number stored in the chunk header. The chunk's body is XOR-scrambled with this salt. By trying
+          different salts, we can produce different-looking DNA from the same image data until we find one that is
+          bio-safe.</dd>
+
+        <dt id="g-xor">XOR</dt>
+        <dd>A bit-flip operation: <code>0 XOR 0 = 0</code>, <code>1 XOR 1 = 0</code>, <code>0 XOR 1 = 1</code>. Doing it
+          twice returns you to the original — so XOR is a reversible scramble.</dd>
+
+        <dt id="g-dna-string">DNA string</dt>
+        <dd>All chunks' DNA concatenated into one long string, separated by the marker <code>TCCG</code>. Looks like
+          <code>TCCG…TCCG…TCCG…</code>. Easiest format for pasting.
+        </dd>
+
+        <dt id="g-fasta">FASTA</dt>
+        <dd>The most common text format for DNA in biology. Each record is a header line starting with <code>&gt;</code>
+          (the sequence name) followed by one or more lines of bases. Example:
+          <pre>&gt;chunk_0 salt=47 rows=9
+TCCG…</pre>
+        </dd>
+      </dl>
+
+      <h3>Decode tab</h3>
+      <dl>
+        <dt id="g-w">Image width (W)</dt>
+        <dd>How many pixels wide each row is. You must tell the decoder this — otherwise it doesn't know where one row
+          ends and the next begins. The encoder prints the right value to use when it saves the DNA.</dd>
+
+        <dt id="g-paint-order">Paint order</dt>
+        <dd>The decoder paints rows top-to-bottom in the order they appear in your pasted text. If you paste chunks out
+          of order, the image comes out shuffled by chunks (but each chunk's rows stay correct). If you paste them in
+          order, you get the original image.</dd>
+
+        <dt id="g-partial-decoding">Partial decoding</dt>
+        <dd>You don't need the full the DNA for the whole image. Paste one chunk and you'll see corresponding rows — the
+          rest of the canvas stays white.
+          This is the whole point of using Golomb Rice compression over more effective(e.g., arithmetic encoding)
+          compression methods: you can decode a fragment of the picture. Minimum one chunk including the Marker is
+          required.</dd>
+
+        <dt id="g-chunk-boundary">Chunk boundary</dt>
+        <dd>Where one chunk ends and the next begins. Always marked by <code>TCCG</code>. The decoder splits on this
+          pattern.</dd>
+      </dl>
+
+      <h3>Encode tab</h3>
+      <dl>
+        <dt id="g-source-image">Source image</dt>
+        <dd>The image you upload — can be any format (PNG, JPG, etc.). It'll be processed into black-and-white before
+          encoding.</dd>
+
+        <dt id="g-contrast">Contrast</dt>
+        <dd>A multiplier that stretches the image's gray values around the middle. Higher contrast makes darks darker
+          and lights lighter. Useful before thresholding if the source is muddy.</dd>
+
+        <dt id="g-threshold">Threshold</dt>
+        <dd>The gray value (0–255) below which a pixel becomes black, above which it becomes white. Lower threshold =
+          less black. Tune until the preview looks right.</dd>
+
+        <dt id="g-binarization">Binarization</dt>
+        <dd>Converting a grayscale image into pure black and white (only two pixel values). Our encoder expects a binary
+          image because runs of all-black or all-white pixels compress very efficiently.</dd>
+
+        <dt id="g-target-width">Target width</dt>
+        <dd>How wide to resize the image to before encoding. Smaller = less DNA needed (fewer pixels). This becomes the
+          <em>W</em> you'll need on the decode side.
+        </dd>
+
+        <dt id="g-target-bits">Target body bits</dt>
+        <dd>How many bits of compressed image data to put into each chunk's body. Roughly controls DNA strand length —
+          more bits per chunk means fewer, longer strands. 1500 is a reasonable default (strand of ~1000 bases).</dd>
+
+        <dt id="g-rle">Run-length encoding (RLE)</dt>
+        <dd>Compressing a row like "BBBBBWWWWWWWWBB" as "5 black, 8 white, 2 black" — a list of run lengths instead of
+          pixel-by-pixel. Works brilliantly for binary images with long runs.</dd>
+
+        <dt id="g-gr">Golomb-Rice</dt>
+        <dd>A simple binary code for small positive integers: a short one packs into few bits, a long one packs into
+          more. Matches the statistics of image run lengths (many short, few long). We use this to turn the RLE numbers
+          into a bit-string.</dd>
+
+        <dt id="g-gr-k">GR_K</dt>
+        <dd>The single parameter of Golomb-Rice. Set to 5 in this app. It tunes the code for the expected range of
+          run-length values — fine for our typical images.</dd>
+
+        <dt id="g-salt-search">Salt search</dt>
+        <dd>Before accepting a chunk's DNA, the encoder tries up to 65,536 different salt values and keeps the first one
+          whose DNA is bio-safe. Cheap because XOR is instant.</dd>
+
+        <dt id="g-bio-safety">Bio-safety</dt>
+        <dd>A DNA is "bio-safe" here if its GC% sits between 40% and 60% and it contains none of a list of 12
+          restriction sites. This gives the strand a good chance of being synthesizable and surviving typical cloning
+          workflows.</dd>
+
+        <dt id="g-restriction">Restriction site</dt>
+        <dd>Short DNA sequences (usually 6 bases) that bacterial enzymes recognize and cut. If an important enzyme's
+          site appears in your DNA, the enzyme will slice your strand during cloning. Commercial synthesis often also
+          refuses sequences containing these.</dd>
+
+        <dt id="g-gc">GC content / GC%</dt>
+        <dd>The percentage of bases that are G or C (as opposed to A or T). Extreme values (too high or too low) make
+          DNA harder to synthesize and sequence reliably. We aim for 40–60%.</dd>
+      </dl>
+
+    </div>
+  </aside>
+
   <script src="./js/bundle.js"></script>
 </body>
+
 </html>

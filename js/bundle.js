@@ -413,4 +413,44 @@
     encCopyString.textContent = "Copied!";
     setTimeout(() => { encCopyString.textContent = "Copy DNA"; }, 1200);
   });
+
+  // ══════════════════════════════ GLOSSARY ═══════════════════════════════
+  const glossary = document.getElementById("glossary");
+  const glossaryToggle = document.getElementById("glossary-toggle");
+  const glossaryClose = document.getElementById("glossary-close");
+
+  function openGlossary(term) {
+    glossary.classList.add("open");
+    glossary.setAttribute("aria-hidden", "false");
+    if (term) {
+      const el = document.getElementById("g-" + term);
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          el.classList.add("highlight");
+          setTimeout(() => el.classList.remove("highlight"), 1500);
+        }, 220);
+      }
+    }
+  }
+  function closeGlossary() {
+    glossary.classList.remove("open");
+    glossary.setAttribute("aria-hidden", "true");
+  }
+
+  if (glossaryToggle) glossaryToggle.addEventListener("click", () => {
+    if (glossary.classList.contains("open")) closeGlossary(); else openGlossary();
+  });
+  if (glossaryClose) glossaryClose.addEventListener("click", closeGlossary);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && glossary.classList.contains("open")) closeGlossary();
+  });
+
+  document.querySelectorAll(".jargon").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      openGlossary(el.dataset.term);
+    });
+  });
 })();
