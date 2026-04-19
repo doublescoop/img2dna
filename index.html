@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>img2dna — image ↔ DNA</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>img2dna</h1>
+    <p>Encode a black-and-white image as DNA, decode DNA back to an image. Entirely client-side.</p>
+    <p class="constants">
+      <b>W</b>=image width ·
+      <b>GR_K</b>=5 ·
+      <b>MARKER</b>=<code>TCCG</code> ·
+      per-strand header: guard(1b) + salt(16b)
+    </p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab" data-tab="decode">Decode</button>
+    <button class="tab" data-tab="encode">Encode</button>
+  </nav>
+
+  <main>
+
+    <!-- ════════════════════════════════ DECODE ════════════════════════════ -->
+    <section class="panel" data-panel="decode">
+      <div class="row">
+        <div class="card">
+          <h2>Paste DNA</h2>
+          <textarea id="dec-input" placeholder="Paste one strand, many strands, a FASTA file, or a raw DNA soup. The decoder keeps only A/C/G/T, splits on TCCG, and paints each chunk top-to-bottom."></textarea>
+
+          <label class="field" for="dec-width">
+            <span>Image width (W)</span>
+            <input type="number" id="dec-width" value="200" min="1" max="4096" style="width:90px" />
+          </label>
+
+          <div class="btn-row">
+            <label class="ghost" style="padding:8px 16px;border:1px solid var(--line);border-radius:4px;cursor:pointer;">
+              Load file…
+              <input type="file" id="dec-file" accept=".txt,.fasta,.fa,.fna,text/plain" hidden />
+            </label>
+            <button class="ghost" id="dec-clear">Clear</button>
+          </div>
+
+          <p class="status" id="dec-stats">Paste DNA to render.</p>
+
+          <details>
+            <summary>How decoding works (index-card spec)</summary>
+            <div class="content">1. Keep only A/C/G/T (uppercase).
+2. Split on TCCG — each piece is one chunk.
+3. For each piece:
+   a. Convert DNA → trits using the FSM
+   b. Trits → bits (base-3 to binary)
+   c. Skip leading zeros; first '1' is the guard
+   d. Next 16 bits = salt
+   e. XOR the rest with salt (repeating every 16 bits)
+   f. Loop: read 1 bit = row start color;
+      GR-decode runs until they sum to W pixels;
+      paint that row with alternating colors
+4. Paint rows top-to-bottom on a white canvas.
+Undecodable chunks are skipped. Unpainted pixels stay white.</div>
+          </details>
+        </div>
+
+        <div class="card">
+          <h2>Decoded image</h2>
+          <div class="canvas-wrap">
+            <canvas id="dec-canvas" width="200" height="1"></canvas>
+          </div>
+          <p class="muted">Rows paint in the order they appear in the pasted text. Drop chunks, rearrange, or paste partial DNA — only the rows you have will render.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════ ENCODE ════════════════════════════ -->
+    <section class="panel" data-panel="encode">
+      <div class="row">
+        <div class="card">
+          <h2>Source image</h2>
+          <input type="file" id="enc-file" accept="image/*" />
+
+          <label class="field"><span>Contrast</span><span class="val" id="enc-contrast-val">3</span></label>
+          <input type="range" id="enc-contrast" min="1" max="8" step="0.5" value="3" />
+
+          <label class="field"><span>Threshold</span><span class="val" id="enc-threshold-val">64</span></label>
+          <input type="range" id="enc-threshold" min="0" max="255" step="1" value="64" />
+
+          <label class="field"><span>Target width (px)</span><span class="val" id="enc-min-width-val">200</span></label>
+          <input type="range" id="enc-min-width" min="100" max="800" step="10" value="200" />
+
+          <label class="field"><span>Target body bits/chunk</span><span class="val" id="enc-target-bits-val">1500</span></label>
+          <input type="range" id="enc-target-bits" min="500" max="4000" step="100" value="1500" />
+
+          <div class="canvas-wrap" style="margin-top:12px;">
+            <canvas id="enc-preview" width="200" height="1"></canvas>
+          </div>
+
+          <div class="btn-row">
+            <button id="enc-encode-btn" disabled>Generate DNA</button>
+          </div>
+          <p class="status" id="enc-status">Load an image to preview.</p>
+        </div>
+
+        <div class="card">
+          <h2>Output DNA</h2>
+          <div id="enc-results" hidden>
+            <label class="field"><span>FASTA (one record per chunk)</span></label>
+            <textarea id="enc-fasta" readonly style="min-height:140px;"></textarea>
+            <div class="btn-row">
+              <button class="ghost" id="enc-download-fasta">Download FASTA</button>
+            </div>
+
+            <label class="field" style="margin-top:12px;"><span>Soup (concatenated, with markers)</span></label>
+            <textarea id="enc-soup" readonly style="min-height:140px;"></textarea>
+            <div class="btn-row">
+              <button class="ghost" id="enc-copy-soup">Copy soup</button>
+              <button class="ghost" id="enc-download-soup">Download soup</button>
+            </div>
+          </div>
+          <p class="muted" id="enc-hint">
+            The soup looks like <code>TCCG…TCCG…TCCG…</code>. Paste it into the Decode tab
+            to verify the round-trip. Width (W) printed in the status is the number you
+            should use when decoding.
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="./js/bundle.js"></script>
+</body>
+</html>
