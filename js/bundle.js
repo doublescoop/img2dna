@@ -335,6 +335,18 @@
     img.src = url;
   });
 
+  // Example images — click to load without going through the file picker
+  document.querySelectorAll(".example-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const img = new Image();
+      img.onload = () => { loadedImage = img; renderEncPreview(); };
+      img.onerror = () => {
+        encStatus.textContent = `Couldn't load ${btn.dataset.src}. Make sure the file exists and the page is served (not opened via file://).`;
+      };
+      img.src = btn.dataset.src;
+    });
+  });
+
   function renderEncPreview() {
     if (!loadedImage) return;
     const minW = parseInt(encMinWidth.value, 10);

@@ -115,20 +115,36 @@
 
           <details>
             <summary>decoding steps under the hood</summary>
-            <div class="content">1. Keep only A/C/G/T (uppercase).
-              2. Split on TCCG — each piece is one chunk
-              (see <span class="jargon" data-term="chunk-boundary">chunk boundary</span>).
-              3. For each piece:
-              a. Convert DNA → trits using the FSM
-              b. Trits → bits (base-3 to binary)
-              c. Skip leading zeros; first '1' is the guard
-              d. Next 16 bits = salt
-              e. <span class="jargon" data-term="xor">XOR</span> the rest with salt (repeating every 16 bits)
-              f. Loop: read 1 bit = row start color;
-              GR-decode runs until they sum to W pixels;
-              paint that <span class="jargon" data-term="row">row</span> with alternating colors
-              4. Paint rows top-to-bottom on a white canvas.
-              Undecodable chunks are skipped. Unpainted pixels stay white.</div>
+            <div class="content">
+
+              <p class="stage">=== Input cleaning ===</p>
+              <ol>
+                <li>Drop FASTA/comment header lines (lines starting with <code>&gt;</code> or <code>#</code>).</li>
+                <li>Keep only <code>A</code>/<code>C</code>/<code>G</code>/<code>T</code>, uppercase. Everything else (whitespace, punctuation, numbers) is ignored.</li>
+              </ol>
+
+              <p class="stage">=== Split into chunks ===</p>
+              <ol>
+                <li>Split on <code>TCCG</code>. Each piece between markers is one <span class="jargon" data-term="chunk">chunk</span> (see <span class="jargon" data-term="chunk-boundary">chunk boundary</span>).</li>
+              </ol>
+
+              <p class="stage">=== Per-chunk decode ===</p>
+              <ol>
+                <li>DNA → <span class="jargon" data-term="trit">trits</span> using the <span class="jargon" data-term="fsm">FSM</span> in reverse.</li>
+                <li>Trits → <span class="jargon" data-term="bit">bits</span> (base-3 number → binary).</li>
+                <li>Skip leading zeros; the first <code>1</code> is the <span class="jargon" data-term="guard">guard</span>.</li>
+                <li>Next 16 bits = <span class="jargon" data-term="salt">salt</span>.</li>
+                <li><span class="jargon" data-term="xor">XOR</span> the remaining bits with the salt (repeating every 16 bits) to unscramble the body.</li>
+              </ol>
+
+              <p class="stage">=== Rendering ===</p>
+              <ol>
+                <li>Loop until body bits run out: read 1 bit = row's start color; GR-decode runs until they sum to <span class="jargon" data-term="w">W</span>; paint that <span class="jargon" data-term="row">row</span> with alternating colors.</li>
+                <li>Paint rows top-to-bottom in <span class="jargon" data-term="paint-order">paint order</span>.</li>
+              </ol>
+
+              <p>Undecodable chunks are skipped. Unpainted pixels stay white.</p>
+            </div>
           </details>
         </div>
 
@@ -154,6 +170,13 @@
         <div class="card">
           <h2><span class="jargon" data-term="source-image">Source image</span></h2>
           <input type="file" id="enc-file" accept="image/*" />
+          <div class="examples">
+            <button class="example-btn" data-src="./public/FLOWERGIRLS/1_LOW_HUE_KUM.jpeg">1 Low Hue Kum</button>
+            <button class="example-btn" data-src="./public/FLOWERGIRLS/2_MAH_AH_WAH.jpeg">2 Mah Ah Wah</button>
+            <button class="example-btn" data-src="./public/FLOWERGIRLS/3_FONG_KIM_LEAN.jpeg">3 Fong Kim Lean</button>
+            <button class="example-btn" data-src="./public/FLOWERGIRLS/4_MRS_WONG_KWAI_FA.jpeg">4 Mrs Wong Kwai
+              Fa</button>
+          </div>
 
           <label class="field"><span><span class="jargon" data-term="contrast">Contrast</span></span><span class="val"
               id="enc-contrast-val">3</span></label>
@@ -171,7 +194,7 @@
           <label class="field"><span><span class="jargon" data-term="target-bits">Target body bits</span>/<span
                 class="jargon" data-term="chunk">chunk</span></span><span class="val"
               id="enc-target-bits-val">1500</span></label>
-          <input type="range" id="enc-target-bits" min="500" max="4000" step="100" value="1500" />
+          <input type="range" id="enc-target-bits" min="500" max="4000" step="100" value="3000" />
 
           <div class="canvas-wrap" style="margin-top:12px;">
             <canvas id="enc-preview" width="200" height="1"></canvas>
@@ -184,18 +207,39 @@
 
           <details>
             <summary>How encoding works</summary>
-            <div class="content">1. <span class="jargon" data-term="binarization">Binarize</span> (grayscale →
-              black/white using contrast + threshold).
-              2. <span class="jargon" data-term="rle">RLE</span>: describe each <span class="jargon"
-                data-term="row">row</span> as "K black, M white, …".
-              3. <span class="jargon" data-term="gr">Golomb-Rice</span>: pack those run lengths into a bit-string.
-              4. Pack rows into chunks of ~target body bits.
-              5. For each chunk, <span class="jargon" data-term="salt-search">salt-search</span>: try 16-bit salts
-              (<span class="jargon" data-term="xor">XOR</span>) until the
-              resulting DNA is <span class="jargon" data-term="bio-safety">bio-safe</span> — balanced <span
-                class="jargon" data-term="gc">GC%</span> and no <span class="jargon" data-term="restriction">restriction
-                sites</span>.
-              6. Output each chunk as DNA, joined by the TCCG marker.</div>
+            <div class="content">
+
+              <p class="stage">=== Preprocessing ===</p>
+              <ol>
+                <li>Grayscale the image and boost <span class="jargon" data-term="contrast">contrast</span> around mid-gray.</li>
+                <li><span class="jargon" data-term="binarization">Binarize</span>: pixels below <span class="jargon" data-term="threshold">threshold</span> → black, above → white.</li>
+                <li>Downscale to the <span class="jargon" data-term="target-width">target width</span>. Every <span class="jargon" data-term="row">row</span> now has exactly <span class="jargon" data-term="w">W</span> <span class="jargon" data-term="pixel">pixels</span>.</li>
+              </ol>
+
+              <p class="stage">=== Compression ===</p>
+              <ol>
+                <li><span class="jargon" data-term="rle">RLE</span>: describe each row as "K black, M white, …" — a list of run lengths instead of pixel-by-pixel.</li>
+                <li><span class="jargon" data-term="gr">Golomb-Rice</span>: pack each run length into a short prefix code (small runs → few bits).</li>
+              </ol>
+
+              <p class="stage">=== Packaging into chunks ===</p>
+              <ol>
+                <li>Group rows into <span class="jargon" data-term="chunk">chunks</span> of roughly <span class="jargon" data-term="target-bits">target body bits</span> each.</li>
+                <li>For each chunk, prepend a <span class="jargon" data-term="guard">guard bit</span> + a <span class="jargon" data-term="salt">salt</span>, then <span class="jargon" data-term="xor">XOR</span> the body with the salt (reversible scramble).</li>
+                <li>Turn those bits into <span class="jargon" data-term="trit">trits</span> (base-3), then into DNA <span class="jargon" data-term="base">bases</span> through the <span class="jargon" data-term="fsm">FSM</span>.</li>
+              </ol>
+
+              <p class="stage">=== Bio-safety check ===</p>
+              <ol>
+                <li><span class="jargon" data-term="salt-search">Salt-search</span>: repeat the XOR step with salts 0 … 65,535 until the resulting DNA is <span class="jargon" data-term="bio-safety">bio-safe</span> — <span class="jargon" data-term="gc">GC%</span> within 40–60% and no <span class="jargon" data-term="restriction">restriction sites</span>.</li>
+              </ol>
+
+              <p class="stage">=== Output ===</p>
+              <ol>
+                <li>Glue all chunks with the <span class="jargon" data-term="marker">TCCG marker</span> into one <span class="jargon" data-term="dna-string">DNA string</span>. Also save a <span class="jargon" data-term="fasta">FASTA</span> version with per-chunk headers.</li>
+              </ol>
+
+            </div>
           </details>
         </div>
 
@@ -360,7 +404,8 @@ TCCG…</pre>
 
         <dt id="g-target-bits">Target body bits</dt>
         <dd>How many bits of compressed image data to put into each chunk's body. Roughly controls DNA strand length —
-          more bits per chunk means fewer, longer strands. 1500 is a reasonable default (strand of ~1000 bases).</dd>
+          more bits per chunk means fewer, longer strands. 3000 is the upper bound of reasonable default (produces ~2000
+          DNA bases).</dd>
 
         <dt id="g-rle">Run-length encoding (RLE)</dt>
         <dd>Compressing a row like "BBBBBWWWWWWWWBB" as "5 black, 8 white, 2 black" — a list of run lengths instead of
@@ -396,6 +441,12 @@ TCCG…</pre>
 
     </div>
   </aside>
+
+  <footer class="site-footer">
+    <a href="https://github.com/doublescoop/img2dna" target="_blank" rel="noopener">github.com/doublescoop/img2dna</a>
+    <span>·</span>
+    <span>by @soul choi</span>
+  </footer>
 
   <script src="./js/bundle.js"></script>
 </body>

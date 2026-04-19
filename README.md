@@ -1,3 +1,5 @@
+![img2dna interface](public/img2dna-screen.png)
+
 # img2dna
 
 Static web app for encoding a black-and-white image as DNA (and decoding DNA back to an image). Mirrors the v11 notebook exactly — same constants, same format, roundtrips.
