@@ -200,8 +200,17 @@
     }
     return canvas;
   }
-  function decodeDnaSoup(text, W, k, marker = MARKER) {
-    const cleaned = text.toUpperCase().replace(/[^ACGT]/g, "");
+  function decodeDna(text, W, k, marker = MARKER) {
+    // Drop FASTA-style header lines (> …) and comment lines (# …) first.
+    // Otherwise header text like "# MARKER=TCCG …" would leak a fake TCCG
+    // into the stream, and "salt=47" would leak stray A/T bases.
+    const stripped = text.split(/\r?\n/)
+      .filter((line) => {
+        const t = line.trimStart();
+        return !t.startsWith(">") && !t.startsWith("#");
+      })
+      .join("\n");
+    const cleaned = stripped.toUpperCase().replace(/[^ACGT]/g, "");
     const pieces = cleaned.split(marker).filter(Boolean);
     const allRows = [], perChunk = [];
     for (const p of pieces) {
@@ -250,7 +259,7 @@
       return;
     }
     const t0 = performance.now();
-    const { allRows, perChunk } = decodeDnaSoup(text, W, GR_K);
+    const { allRows, perChunk } = decodeDna(text, W, GR_K);
     const elapsed = (performance.now() - t0).toFixed(0);
 
     if (allRows.length === 0) {
@@ -300,11 +309,11 @@
   const encBtn = document.getElementById("enc-encode-btn");
   const encStatus = document.getElementById("enc-status");
   const encResults = document.getElementById("enc-results");
-  const encSoup = document.getElementById("enc-soup");
+  const encString = document.getElementById("enc-string");
   const encFasta = document.getElementById("enc-fasta");
-  const encDlSoup = document.getElementById("enc-download-soup");
+  const encDlString = document.getElementById("enc-download-string");
   const encDlFasta = document.getElementById("enc-download-fasta");
-  const encCopySoup = document.getElementById("enc-copy-soup");
+  const encCopyString = document.getElementById("enc-copy-string");
 
   let loadedImage = null, bwProcessed = null, encH = 0, encW = 0;
 
@@ -378,15 +387,15 @@
       encBtn.disabled = false; return;
     }
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
-    const soup = dnaChunks.map((d) => MARKER + d).join("");
+    const dnaString = dnaChunks.map((d) => MARKER + d).join("");
     const header = `# W=${encW} GR_K=${GR_K} MARKER=${MARKER} H=${encH} chunks=${dnaChunks.length}`;
     const fasta = header + "\n" +
       dnaChunks.map((d, i) => `>chunk_${i} salt=${salts[i]} rows=${rowsPerChunk[i]}\n${MARKER}${d}`).join("\n") + "\n";
-    encSoup.value = header + "\n" + soup;
+    encString.value = header + "\n" + dnaString;
     encFasta.value = fasta;
     encResults.hidden = false; encBtn.disabled = false;
-    encStatus.textContent = `Done. ${soup.length.toLocaleString()} DNA bases in ${dnaChunks.length} chunks (${elapsed}s). ` +
-      `${(encH * encW / soup.length).toFixed(2)} pixels/base.`;
+    encStatus.textContent = `Done. ${dnaString.length.toLocaleString()} DNA bases in ${dnaChunks.length} chunks (${elapsed}s). ` +
+      `${(encH * encW / dnaString.length).toFixed(2)} pixels/base.`;
   });
 
   function downloadText(filename, text) {
@@ -397,11 +406,11 @@
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
   }
-  encDlSoup.addEventListener("click", () => downloadText("dna_v11_soup.txt", encSoup.value));
+  encDlString.addEventListener("click", () => downloadText("dna_v11.txt", encString.value));
   encDlFasta.addEventListener("click", () => downloadText("dna_v11_chunks.fasta", encFasta.value));
-  encCopySoup.addEventListener("click", async () => {
-    await navigator.clipboard.writeText(encSoup.value);
-    encCopySoup.textContent = "Copied!";
-    setTimeout(() => { encCopySoup.textContent = "Copy soup"; }, 1200);
+  encCopyString.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(encString.value);
+    encCopyString.textContent = "Copied!";
+    setTimeout(() => { encCopyString.textContent = "Copy DNA"; }, 1200);
   });
 })();

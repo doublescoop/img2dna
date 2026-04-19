@@ -205,3 +205,51 @@ details .content {
   margin-top: 4px;
 }
 .constants b { color: var(--ink); font-weight: 600; }
+.constants a { color: var(--muted); text-decoration: underline; }
+.constants a:hover { color: var(--ink); }
+
+.fsm-box {
+  max-width: 1100px;
+  margin: 8px auto 0 auto;
+  padding: 0 32px;
+  font-size: 13px;
+}
+.fsm-box summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px 0;
+}
+.fsm-box summary:hover { color: var(--ink); }
+.fsm-box[open] summary { color: var(--ink); margin-bottom: 8px; }
+
+.fsm-content {
+  background: white;
+  border: 1px solid var(--line);
+  padding: 16px;
+}
+.fsm-content p { margin: 0 0 10px 0; color: var(--ink); }
+.fsm-content p.fsm-note { color: var(--muted); font-size: 12px; margin-top: 10px; margin-bottom: 0; }
+
+.fsm-table {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 13px;
+  margin: 4px 0;
+}
+.fsm-table th, .fsm-table td {
+  border: 1px solid var(--line);
+  padding: 6px 14px;
+  text-align: center;
+}
+.fsm-table thead th {
+  background: #f4f4f0;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.fsm-table tbody td:first-child {
+  background: #f4f4f0;
+  font-weight: 600;
+}

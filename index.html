@@ -14,8 +14,28 @@
       <b>W</b>=image width ·
       <b>GR_K</b>=5 ·
       <b>MARKER</b>=<code>TCCG</code> ·
+      <b>FSM map</b> (<a href="#" onclick="document.getElementById('fsm-details').open=true;document.getElementById('fsm-details').scrollIntoView({behavior:'smooth'});return false;">see below</a>) ·
       per-strand header: guard(1b) + salt(16b)
     </p>
+
+    <details id="fsm-details" class="fsm-box">
+      <summary><b>FSM map</b> — how bits become bases (and back)</summary>
+      <div class="fsm-content">
+        <p>Bits are grouped into base-3 digits (trits) and each trit picks the next DNA base according to the previous one. The rule guarantees no base is ever repeated (no AA/CC/GG/TT) and keeps GC% balanced.</p>
+        <table class="fsm-table">
+          <thead>
+            <tr><th>previous base</th><th>trit = 0</th><th>trit = 1</th><th>trit = 2</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><b>A</b></td><td>C</td><td>G</td><td>T</td></tr>
+            <tr><td><b>C</b></td><td>G</td><td>T</td><td>A</td></tr>
+            <tr><td><b>G</b></td><td>T</td><td>A</td><td>C</td></tr>
+            <tr><td><b>T</b></td><td>A</td><td>C</td><td>G</td></tr>
+          </tbody>
+        </table>
+        <p class="fsm-note">First base (no previous): <code>trit 0 → A</code>, <code>trit 1 → C</code>, <code>trit 2 → G</code>. To decode, look up the row for the previous base and read the column whose cell equals the current base — that column index is the trit.</p>
+      </div>
+    </details>
   </header>
 
   <nav class="tabs">
@@ -30,7 +50,7 @@
       <div class="row">
         <div class="card">
           <h2>Paste DNA</h2>
-          <textarea id="dec-input" placeholder="Paste one strand, many strands, a FASTA file, or a raw DNA soup. The decoder keeps only A/C/G/T, splits on TCCG, and paints each chunk top-to-bottom."></textarea>
+          <textarea id="dec-input" placeholder="Paste DNA — a single strand, many strands, the full concatenated DNA string, or a FASTA file. The decoder drops FASTA/comment headers, keeps only A/C/G/T, splits on TCCG, and paints each chunk top-to-bottom."></textarea>
 
           <label class="field" for="dec-width">
             <span>Image width (W)</span>
@@ -113,15 +133,15 @@ Undecodable chunks are skipped. Unpainted pixels stay white.</div>
               <button class="ghost" id="enc-download-fasta">Download FASTA</button>
             </div>
 
-            <label class="field" style="margin-top:12px;"><span>Soup (concatenated, with markers)</span></label>
-            <textarea id="enc-soup" readonly style="min-height:140px;"></textarea>
+            <label class="field" style="margin-top:12px;"><span>DNA string (concatenated, with markers)</span></label>
+            <textarea id="enc-string" readonly style="min-height:140px;"></textarea>
             <div class="btn-row">
-              <button class="ghost" id="enc-copy-soup">Copy soup</button>
-              <button class="ghost" id="enc-download-soup">Download soup</button>
+              <button class="ghost" id="enc-copy-string">Copy DNA</button>
+              <button class="ghost" id="enc-download-string">Download DNA</button>
             </div>
           </div>
           <p class="muted" id="enc-hint">
-            The soup looks like <code>TCCG…TCCG…TCCG…</code>. Paste it into the Decode tab
+            The DNA string looks like <code>TCCG…TCCG…TCCG…</code>. Paste it into the Decode tab
             to verify the round-trip. Width (W) printed in the status is the number you
             should use when decoding.
           </p>
