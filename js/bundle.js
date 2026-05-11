@@ -10,6 +10,7 @@
   const RESTRICTION_SITES = [
     "GAATTC", "GGTACC", "CCATGG", "GAGCTC", "CGTCTC", "GAGACG",
     "GGTCTC", "GAGACC", "GCGATG", "CATCGC", "GAAGAC", "GTCTTC",
+    "GATATC", // EcoRV (blunt cutter, palindrome)
   ];
 
   function grBitLength(rl, k) { const n = rl - 1; return (n >> k) + 1 + k; }
