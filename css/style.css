@@ -309,6 +309,41 @@ details .content .stage:first-child { margin-top: 0; }
   color: white;
 }
 
+/* ─── per-chunk quality chips (encode tab) ─── */
+.chunk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.chunk-chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  cursor: help;
+}
+.chunk-chip.chip-strict {
+  background: #f0f7f0;
+  border-color: #c5dcc5;
+  color: #2d5a2d;
+}
+.chunk-chip.chip-relaxed {
+  background: #fff5d6;
+  border-color: #e8d27a;
+  color: #7a5e0a;
+}
+.chunk-chip.chip-minimal {
+  background: #ffe2c4;
+  border-color: #e8a85e;
+  color: #804010;
+}
+.quality-summary {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--ink);
+}
+
 .site-footer {
   max-width: 1100px;
   margin: 40px auto 0 auto;

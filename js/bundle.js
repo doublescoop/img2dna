@@ -98,12 +98,57 @@
     return out.join("");
   }
 
-  function isDnaSafe(dna) {
+  // any 10-mer that repeats within a 100bp window = potential synthesis flag
+  function hasLocalDirectRepeat(dna, k = 10, window = 100) {
+    const seen = new Map();
+    const end = dna.length - k;
+    for (let i = 0; i <= end; i++) {
+      const kmer = dna.substring(i, i + k);
+      const prev = seen.get(kmer);
+      if (prev !== undefined && i - prev <= window) return true;
+      seen.set(kmer, i);
+    }
+    return false;
+  }
+
+  // tandem 2-mer (AT AT AT AT AT, etc) ≥10bp, or 3-mer ≥12bp
+  function hasTandemMotifRepeat(dna) {
+    for (let i = 0; i + 10 <= dna.length; i++) {
+      const m = dna[i] + dna[i + 1];
+      if (m[0] !== m[1]) {
+        if (dna.substring(i, i + 10) === m + m + m + m + m) return true;
+      }
+    }
+    for (let i = 0; i + 12 <= dna.length; i++) {
+      const m = dna.substring(i, i + 3);
+      if (dna.substring(i, i + 12) === m + m + m + m) return true;
+    }
+    return false;
+  }
+
+  // ─── 3-tier bio-safety ─────────────────────────────────────────────────
+  // Tier 3 (minimal): GC% + restriction sites only. Hard requirements —
+  // always enforced. Skipping these would break cloning.
+  function isDnaSafeMinimal(dna) {
     let gc = 0;
     for (const c of dna) if (c === "C" || c === "G") gc++;
     const pct = (gc / dna.length) * 100;
     if (pct < 40 || pct > 60) return false;
     for (const s of RESTRICTION_SITES) if (dna.includes(s)) return false;
+    return true;
+  }
+
+  // Tier 2 (relaxed): + tandem 2-mer/3-mer check (no local 10-mer/100bp).
+  function isDnaSafeRelaxed(dna) {
+    if (!isDnaSafeMinimal(dna)) return false;
+    if (hasTandemMotifRepeat(dna)) return false;
+    return true;
+  }
+
+  // Tier 1 (strict): + local 10-mer/100bp direct repeat check.
+  function isDnaSafe(dna) {
+    if (!isDnaSafeRelaxed(dna)) return false;
+    if (hasLocalDirectRepeat(dna)) return false;
     return true;
   }
 
@@ -122,11 +167,22 @@
   }
   function encodeChunkSearchSalt(chunkRows, k, maxSalts = 65536) {
     const body = buildChunkBody(chunkRows, k);
+    // Pass 1: strict repeat check.
     for (let salt = 0; salt < maxSalts; salt++) {
       const dna = chunkBitsToDna(body, salt);
-      if (isDnaSafe(dna)) return { dna, salt };
+      if (isDnaSafe(dna)) return { dna, salt, quality: "strict" };
     }
-    throw new Error("all salts failed");
+    // Pass 2: relaxed repeat check (drop local-10mer).
+    for (let salt = 0; salt < maxSalts; salt++) {
+      const dna = chunkBitsToDna(body, salt);
+      if (isDnaSafeRelaxed(dna)) return { dna, salt, quality: "relaxed" };
+    }
+    // Pass 3: minimal repeat check (no repeat checks at all).
+    for (let salt = 0; salt < maxSalts; salt++) {
+      const dna = chunkBitsToDna(body, salt);
+      if (isDnaSafeMinimal(dna)) return { dna, salt, quality: "minimal" };
+    }
+    throw new Error("all salts failed even minimal safety");
   }
   function decodeChunkDna(chunkDna, W, k) {
     if (!chunkDna) return [];
@@ -387,12 +443,17 @@
     const t0 = performance.now();
     const rows = imageToRows(bwProcessed, encW, encH);
     const chunks = packRowsIntoChunks(rows, GR_K, targetBits);
-    const dnaChunks = [], salts = [], rowsPerChunk = [];
+    const dnaChunks = [], salts = [], rowsPerChunk = [], qualities = [];
     try {
       for (let i = 0; i < chunks.length; i++) {
-        const { dna, salt } = encodeChunkSearchSalt(chunks[i], GR_K);
-        dnaChunks.push(dna); salts.push(salt); rowsPerChunk.push(chunks[i].length);
-        encStatus.textContent = `Chunk ${i + 1}/${chunks.length} (salt=${salt})…`;
+        const { dna, salt, quality } = encodeChunkSearchSalt(chunks[i], GR_K);
+        dnaChunks.push(dna); salts.push(salt); rowsPerChunk.push(chunks[i].length); qualities.push(quality);
+        const tagMap = {
+          strict:  "✓ strict repeat check",
+          relaxed: "⚠ relaxed repeat check",
+          minimal: "⚠ minimal repeat check",
+        };
+        encStatus.textContent = `Chunk ${i + 1}/${chunks.length} · ${tagMap[quality]} · salt=${salt}…`;
         await new Promise((r) => setTimeout(r, 0));
       }
     } catch (e) {
@@ -401,14 +462,53 @@
     }
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
     const dnaString = dnaChunks.map((d) => MARKER + d).join("");
+    const strictCount  = qualities.filter((q) => q === "strict").length;
+    const relaxedCount = qualities.filter((q) => q === "relaxed").length;
+    const minimalCount = qualities.filter((q) => q === "minimal").length;
+
     const header = `# W=${encW} GR_K=${GR_K} MARKER=${MARKER} H=${encH} chunks=${dnaChunks.length}`;
     const fasta = header + "\n" +
-      dnaChunks.map((d, i) => `>chunk_${i} salt=${salts[i]} rows=${rowsPerChunk[i]}\n${MARKER}${d}`).join("\n") + "\n";
+      dnaChunks.map((d, i) =>
+        `>chunk_${i} salt=${salts[i]} rows=${rowsPerChunk[i]} quality=${qualities[i]}\n${MARKER}${d}`
+      ).join("\n") + "\n";
     encString.value = header + "\n" + dnaString;
     encFasta.value = fasta;
     encResults.hidden = false; encBtn.disabled = false;
-    encStatus.textContent = `Done. ${dnaString.length.toLocaleString()} DNA bases in ${dnaChunks.length} chunks (${elapsed}s). ` +
-      `${(encH * encW / dnaString.length).toFixed(2)} pixels/base.`;
+
+    // Friendly summary
+    let qualityNote;
+    if (relaxedCount === 0 && minimalCount === 0) {
+      qualityNote = `All ${strictCount} chunks passed the <b>strict repeat check</b>.`;
+    } else {
+      const parts = [];
+      if (strictCount)  parts.push(`<b>${strictCount}</b> strict ✓`);
+      if (relaxedCount) parts.push(`<b>${relaxedCount}</b> relaxed ⚠`);
+      if (minimalCount) parts.push(`<b>${minimalCount}</b> minimal ⚠`);
+      qualityNote =
+        parts.join(" · ") +
+        ` — ${relaxedCount + minimalCount} chunk(s) needed eased repeat checks. ` +
+        `${minimalCount > 0 ? "Consider lowering target body bits and re-encoding." : ""}`;
+    }
+    encStatus.innerHTML =
+      `Done. <b>${dnaString.length.toLocaleString()}</b> DNA bases in <b>${dnaChunks.length}</b> chunks (${elapsed}s). ` +
+      `${(encH * encW / dnaString.length).toFixed(2)} pixels/base.<br>` +
+      `<span class="quality-summary">${qualityNote}</span>`;
+
+    // Render per-chunk quality chips
+    const chipsEl = document.getElementById("enc-quality-chips");
+    if (chipsEl) {
+      const tips = {
+        strict:  "passed the strict repeat check",
+        relaxed: "encoded with the relaxed repeat check (local 10-mer check dropped)",
+        minimal: "encoded with the minimal repeat check (all repeat checks dropped)",
+      };
+      const cls = { strict: "chip-strict", relaxed: "chip-relaxed", minimal: "chip-minimal" };
+      const mark = { strict: "✓", relaxed: "⚠", minimal: "⚠" };
+      chipsEl.innerHTML = qualities.map((q, i) =>
+        `<span class="chunk-chip ${cls[q]}" title="chunk ${i}: ${tips[q]}">${i} ${mark[q]}</span>`
+      ).join("");
+      chipsEl.hidden = false;
+    }
   });
 
   function downloadText(filename, text) {
