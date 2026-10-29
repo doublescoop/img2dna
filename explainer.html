@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>img2dna — how it works</title>
+  <link rel="stylesheet" href="./css/style.css" />
+  <style>
+    :root {
+      --c-guard: #b5179e;
+      --c-salt: #d97706;
+      --c-start: #2563eb;
+      --c-q: #16a34a;
+      --c-r: #111;
+      --c-A: #16a34a;
+      --c-C: #2563eb;
+      --c-G: #d97706;
+      --c-T: #dc2626;
+      --soft: #f3f3ee;
+    }
+
+    main { padding-top: 8px; }
+
+    .lede { max-width: 760px; color: var(--ink); font-size: 15px; margin: 8px 0 0 0; }
+    .back { font-size: 13px; color: var(--muted); }
+    .back a { color: var(--muted); }
+
+    .strip {
+      display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+      margin: 20px 0 8px 0; font-size: 12px;
+    }
+    .strip a {
+      text-decoration: none; color: var(--ink); background: white;
+      border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px;
+    }
+    .strip a:hover { background: var(--ink); color: white; }
+    .strip span { color: var(--muted); }
+
+    .step {
+      background: white; border: 1px solid var(--line); border-radius: 8px;
+      padding: 20px; margin: 20px 0; scroll-margin-top: 16px;
+    }
+    .step h2 { font-size: 17px; margin: 0 0 4px 0; display: flex; gap: 10px; align-items: baseline; }
+    .step h2 .n {
+      font: 600 12px var(--mono); background: var(--ink); color: white;
+      border-radius: 4px; padding: 2px 7px; flex: none;
+    }
+    .why { color: var(--muted); margin: 0 0 14px 0; max-width: 760px; }
+    .step p { max-width: 760px; }
+
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 820px) { .two { grid-template-columns: 1fr; } }
+
+    .box { background: var(--soft); border-radius: 6px; padding: 12px; min-width: 0; }
+    .box h3 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--muted); margin: 0 0 8px 0; font-weight: 600;
+    }
+    .mono { font-family: var(--mono); font-size: 12.5px; line-height: 1.6; word-break: break-all; }
+    .stat { font-size: 13px; color: var(--muted); margin-top: 8px; }
+    .stat b { color: var(--ink); }
+
+    .note {
+      border-left: 3px solid var(--c-salt); background: #fff8eb;
+      padding: 10px 12px; font-size: 13.5px; margin: 14px 0 0 0; max-width: 760px;
+    }
+
+    /* pixel grid */
+    .grid {
+      display: grid; grid-template-columns: repeat(16, 1fr); gap: 1px;
+      background: var(--line); border: 1px solid var(--line);
+      width: 100%; max-width: 380px; user-select: none;
+    }
+    .grid .px { aspect-ratio: 1; background: white; cursor: pointer; }
+    .grid .px.k { background: var(--ink); }
+    .grid .px.sel { outline: 2px solid var(--c-start); outline-offset: -2px; }
+    .grid.ro .px { cursor: default; }
+    .grid .px.miss { background: repeating-linear-gradient(45deg, #fff, #fff 3px, #eee 3px, #eee 6px); }
+
+    /* gray ramp */
+    .ramp { display: grid; grid-template-columns: 90px repeat(16, 1fr); gap: 2px; align-items: center; font-size: 12px; }
+    .ramp div.sw { height: 22px; border-radius: 2px; }
+    .ramp .lbl { color: var(--muted); }
+
+    /* row list */
+    .rows { display: flex; flex-direction: column; gap: 2px; }
+    .rowline {
+      display: grid; grid-template-columns: 52px 190px 1fr; gap: 10px; align-items: center;
+      font: 12.5px var(--mono); padding: 3px 6px; border-radius: 4px; cursor: pointer;
+    }
+    .rowline:hover { background: var(--soft); }
+    .rowline.sel { background: #e8efff; }
+    .bar { display: flex; height: 12px; border: 1px solid var(--line); }
+    .bar i { display: block; height: 100%; }
+
+    table.t { border-collapse: collapse; font: 12.5px var(--mono); width: 100%; }
+    table.t th, table.t td { border-bottom: 1px solid var(--line); padding: 5px 8px; text-align: left; }
+    table.t th { font: 600 11px system-ui, sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .tablewrap { overflow-x: auto; }
+
+    .g { color: var(--c-guard); font-weight: 700; }
+    .s { color: var(--c-salt); }
+    .st { color: var(--c-start); font-weight: 700; }
+    .q { color: var(--c-q); }
+    .r { color: var(--c-r); }
+    .dim { color: #aaa; }
+    .bA { color: var(--c-A); } .bC { color: var(--c-C); } .bG { color: var(--c-G); } .bT { color: var(--c-T); }
+    .mk { background: #111; color: #fff; padding: 0 2px; border-radius: 2px; }
+
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px 0; }
+    .pill {
+      font: 12px var(--mono); background: white; color: var(--ink);
+      border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px;
+    }
+    .pill:hover { background: var(--soft); }
+    .pill.on { background: var(--ink); color: white; border-color: var(--ink); }
+    .pill.off { text-decoration: line-through; color: #aaa; }
+
+    .tier { display: inline-block; font: 11px var(--mono); padding: 1px 7px; border-radius: 999px; }
+    .tier.strict { background: #dcfce7; color: #166534; }
+    .tier.relaxed { background: #fef3c7; color: #92400e; }
+    .tier.minimal { background: #fee2e2; color: #991b1b; }
+
+    .ctrl { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0 0; }
+    .ctrl button { font-size: 13px; padding: 6px 12px; }
+    .slider { max-width: 380px; }
+
+    ol.spec { margin: 0; padding-left: 20px; }
+    ol.spec li { margin: 4px 0; }
+
+    .chunkrows { display: flex; flex-direction: column; gap: 6px; }
+    .chunkrow { display: grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: center; font-size: 13px; }
+    .chunkbar { height: 18px; background: var(--c-start); opacity: .85; border-radius: 3px; color: white; font: 11px var(--mono); padding: 0 6px; display: flex; align-items: center; white-space: nowrap; overflow: hidden; }
+
+    @media (max-width: 600px) {
+      header, main { padding-left: 16px; padding-right: 16px; }
+      .step { padding: 14px; }
+      .rowline { grid-template-columns: 44px 1fr; }
+      .rowline .bar { grid-column: 1 / -1; }
+      .ramp { grid-template-columns: 60px repeat(16, 1fr); }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <p class="back"><a href="./index.html">← back to img2dna</a></p>
+    <h1>How img2dna turns a picture into DNA</h1>
+    <p class="lede">
+      This page walks through the exact pipeline the <a href="./index.html">img2dna site</a> runs. Every number below
+      is computed live using the same code as <code>js/bundle.js</code>, on a small 16×10 drawing you can edit.
+      Constants: <b>W</b> = image width · <b>GR_K</b> = 5 · <b>MARKER</b> = <code>TCCG</code> ·
+      chunk header = guard (1 bit) + salt (16 bits).
+    </p>
+  </header>
+
+  <main>
+    <nav class="strip" aria-label="Pipeline steps">
+      <a href="#s1">1 Preprocess</a><span>→</span>
+      <a href="#s2">2 B&amp;W pixels</a><span>→</span>
+      <a href="#s3">3 Run lengths</a><span>→</span>
+      <a href="#s4">4 Golomb-Rice</a><span>→</span>
+      <a href="#s5">5 Chunks</a><span>→</span>
+      <a href="#s6">6 Header + salt</a><span>→</span>
+      <a href="#s7">7 Trits → DNA</a><span>→</span>
+      <a href="#s8">8 Salt search</a><span>→</span>
+      <a href="#s9">9 Marker + output</a><span>→</span>
+      <a href="#s10">10 Decode</a>
+    </nav>
+
+    <!-- ── 1 ── -->
+    <section class="step" id="s1">
+      <h2><span class="n">1</span>Preprocess the photo into black and white</h2>
+      <p class="why">We only store black or white for each pixel, so the photo is reduced to pure black and white first.</p>
+      <ol class="spec">
+        <li><b>Resize</b> to the target width <b>W</b> (default 200 px), up or down, keeping the aspect ratio. Pixels are
+          not blended (nearest neighbour).</li>
+        <li><b>Grayscale</b>: <code>g = 0.2989·R + 0.587·G + 0.114·B</code></li>
+        <li><b>Contrast</b> around mid-gray: <code>g = (g − 128) × contrast + 128</code>, clamped to 0–255.</li>
+        <li><b>Threshold</b>: <code>g &lt; threshold</code> → black, otherwise white.</li>
+      </ol>
+      <div class="box" style="margin-top:14px;">
+        <h3>Try it on a gray ramp</h3>
+        <div class="ramp" id="ramp"></div>
+        <div class="two" style="margin-top:10px;">
+          <div class="slider">
+            <label class="field"><span>Contrast</span><span class="val" id="pp-c-val">3</span></label>
+            <input type="range" id="pp-c" min="1" max="8" step="0.5" value="3" />
+          </div>
+          <div class="slider">
+            <label class="field"><span>Threshold</span><span class="val" id="pp-t-val">64</span></label>
+            <input type="range" id="pp-t" min="0" max="255" step="1" value="64" />
+          </div>
+        </div>
+      </div>
+      <p class="note">
+        <b>Differs from the notebook.</b> <code>img2dna_soul_v11_GR.ipynb</code> also removes large black blobs touching
+        the border, crops to the content with a 10 px margin, only ever <i>shrinks</i>, and uses PIL's contrast (which
+        centres on the image's average gray rather than 128). So the same photo can give a slightly different
+        black-and-white image there. Everything from step 2 onward is identical in both.
+      </p>
+    </section>
+
+    <!-- ── 2 ── -->
+    <section class="step" id="s2">
+      <h2><span class="n">2</span>The black-and-white image</h2>
+      <p class="why">From here on the image is just a grid: <b>W</b> pixels per row, <b>H</b> rows. Click pixels to
+        edit the drawing; every step below updates.</p>
+      <div class="grid" id="grid"></div>
+      <div class="ctrl">
+        <button class="ghost" data-pattern="flower">Flower</button>
+        <button class="ghost" data-pattern="random">Random</button>
+        <button class="ghost" data-pattern="clear">Clear</button>
+      </div>
+      <p class="stat" id="s2-stat"></p>
+    </section>
+
+    <!-- ── 3 ── -->
+    <section class="step" id="s3">
+      <h2><span class="n">3</span>Each row becomes a start colour + run lengths</h2>
+      <p class="why">Instead of listing every pixel, each row is stored as one bit for the colour it starts with
+        (<span class="st">0</span> = black, <span class="st">1</span> = white), followed by how long each stretch of
+        the same colour is. Colours alternate, so they don't need to be stored. Runs in a row always add up to W.
+        Click a row to inspect it.</p>
+      <div class="rows" id="rows"></div>
+    </section>
+
+    <!-- ── 4 ── -->
+    <section class="step" id="s4">
+      <h2><span class="n">4</span>Golomb-Rice compresses each run length (k = 5)</h2>
+      <p class="why">Each run length becomes a short bit pattern. For run length <i>L</i>: take
+        <code>n = L − 1</code>, split it into <code>q = n ÷ 32</code> and <code>r = n mod 32</code>, then write
+        <span class="q">q ones</span>, a <span class="q">0</span>, and <span class="r">r as 5 bits</span>.
+        Runs up to 32 cost 6 bits; each extra 32 pixels costs one more bit.</p>
+      <div class="two">
+        <div class="box tablewrap">
+          <h3 id="s4-title">Selected row</h3>
+          <table class="t" id="s4-table"></table>
+        </div>
+        <div class="box">
+          <h3>Row bits = start bit + codes</h3>
+          <div class="mono" id="s4-bits"></div>
+          <div class="stat" id="s4-stat"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 5 ── -->
+    <section class="step" id="s5">
+      <h2><span class="n">5</span>Pack whole rows into chunks</h2>
+      <p class="why">Each chunk becomes one DNA strand. Rows are added to a chunk until the next row would push it past
+        the <b>target body bits</b>, then a new chunk starts. A row is never split. On the site the default is 3,000
+        bits (about 1,900 bases per strand); here it's small so the tiny drawing still makes several chunks.</p>
+      <div class="slider">
+        <label class="field"><span>Target body bits / chunk</span><span class="val" id="tb-val">80</span></label>
+        <input type="range" id="tb" min="30" max="300" step="5" value="80" />
+      </div>
+      <div class="chunkrows" id="chunks" style="margin-top:12px;"></div>
+    </section>
+
+    <!-- ── 6 ── -->
+    <section class="step" id="s6">
+      <h2><span class="n">6</span>Add the header and scramble the body with a salt</h2>
+      <p class="why">The body bits are XOR-ed with a 16-bit <b>salt</b>, repeated as often as needed. XOR is
+        reversible, so the decoder gets the body back by XOR-ing with the same salt. A different salt gives
+        completely different DNA, which step 8 uses to find a strand that's safe to synthesize. In front go a
+        <span class="g">guard bit 1</span> and the <span class="s">salt</span> itself.</p>
+      <div class="pills" id="chunk-pills-6"></div>
+      <div class="box">
+        <div class="mono" id="s6-detail"></div>
+      </div>
+    </section>
+
+    <!-- ── 7 ── -->
+    <section class="step" id="s7">
+      <h2><span class="n">7</span>Bits → trits → DNA bases</h2>
+      <p class="why">The chunk's entire bit string is read as one big binary number and rewritten in base 3
+        (<b>trits</b>: 0, 1, 2). Each trit picks the next base from the table below, based on the previous base. The
+        next base is never the same as the previous one, so no AA/CC/GG/TT ever appears. The guard bit stops leading
+        zeros from vanishing in the conversion.</p>
+      <div class="two">
+        <div class="box tablewrap">
+          <h3>FSM table</h3>
+          <table class="t">
+            <thead><tr><th>previous</th><th>trit 0</th><th>trit 1</th><th>trit 2</th></tr></thead>
+            <tbody>
+              <tr><td><b>(start)</b></td><td class="bA">A</td><td class="bC">C</td><td class="bG">G</td></tr>
+              <tr><td><b>A</b></td><td class="bC">C</td><td class="bG">G</td><td class="bT">T</td></tr>
+              <tr><td><b>C</b></td><td class="bG">G</td><td class="bT">T</td><td class="bA">A</td></tr>
+              <tr><td><b>G</b></td><td class="bT">T</td><td class="bA">A</td><td class="bC">C</td></tr>
+              <tr><td><b>T</b></td><td class="bA">A</td><td class="bC">C</td><td class="bG">G</td></tr>
+            </tbody>
+          </table>
+          <h3 style="margin-top:12px;">First steps for this chunk</h3>
+          <div class="mono" id="s7-walk"></div>
+        </div>
+        <div class="box">
+          <div class="pills" id="chunk-pills-7"></div>
+          <h3>As a number</h3>
+          <div class="mono" id="s7-num"></div>
+          <h3 style="margin-top:10px;">Trits</h3>
+          <div class="mono" id="s7-trits"></div>
+          <h3 style="margin-top:10px;">DNA</h3>
+          <div class="mono" id="s7-dna"></div>
+          <div class="stat" id="s7-stat"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 8 ── -->
+    <section class="step" id="s8">
+      <h2><span class="n">8</span>Salt search: keep trying salts until the strand is safe</h2>
+      <p class="why">For each chunk the encoder tries salts 0, 1, 2 … up to 65,535, repeating steps 6–7, and keeps the
+        first one that passes. It searches in up to three passes, easing the rules only if a whole pass fails:</p>
+      <div class="tablewrap">
+        <table class="t" style="max-width:820px;">
+          <thead><tr><th>Check</th><th>minimal</th><th>relaxed</th><th>strict</th></tr></thead>
+          <tbody>
+            <tr><td>GC content between 40% and 60%</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>No restriction sites (13, incl. EcoRV <code>GATATC</code>)</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>No tandem repeat: 2-letter motif ×5 (10 bp) or 3-letter ×4 (12 bp)</td><td></td><td>✓</td><td>✓</td></tr>
+            <tr><td>No 10-letter sequence repeating within 100 bp</td><td></td><td></td><td>✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="stat">Order: pass 1 strict → pass 2 relaxed → pass 3 minimal. Restriction sites:
+        <span class="mono" id="sites"></span></p>
+      <div class="box tablewrap" style="margin-top:12px;">
+        <table class="t" id="s8-table"></table>
+      </div>
+      <p class="stat">No bases are ever patched or replaced, so the image always decodes exactly.</p>
+    </section>
+
+    <!-- ── 9 ── -->
+    <section class="step" id="s9">
+      <h2><span class="n">9</span>Join chunks with the TCCG marker</h2>
+      <p class="why">Every chunk is prefixed with <span class="mono mk">TCCG</span>. It contains <code>CC</code>, which
+        the FSM can never produce, so the marker can't appear by accident inside a chunk. The site offers the result
+        as one DNA string or as FASTA (one record per chunk).</p>
+      <div class="two">
+        <div class="box">
+          <h3>DNA string</h3>
+          <div class="mono" id="s9-string"></div>
+        </div>
+        <div class="box">
+          <h3>FASTA</h3>
+          <div class="mono" id="s9-fasta" style="white-space:pre-wrap;"></div>
+        </div>
+      </div>
+      <p class="stat" id="s9-stat"></p>
+    </section>
+
+    <!-- ── 10 ── -->
+    <section class="step" id="s10">
+      <h2><span class="n">10</span>Decode, including from missing pieces</h2>
+      <p class="why">Each chunk decodes on its own, so a partial set of strands still gives part of the picture. Click a
+        chunk to drop it. Rows are painted top to bottom in the order they arrive, so dropping a chunk moves the rows
+        after it up rather than leaving a gap.</p>
+      <div class="pills" id="chunk-pills-10"></div>
+      <div class="two">
+        <div>
+          <div class="grid ro" id="grid-out"></div>
+          <p class="stat" id="s10-stat"></p>
+        </div>
+        <div class="box">
+          <h3>Decoder spec (what a biologist needs)</h3>
+          <ol class="spec">
+            <li>Drop lines starting with <code>&gt;</code> or <code>#</code>; keep only A/C/G/T, uppercase.</li>
+            <li>Split on <code>TCCG</code>. Each piece is one chunk.</li>
+            <li>DNA → trits with the FSM table in reverse (the start row for the first base).</li>
+            <li>Trits → one big number → bits.</li>
+            <li>The first <code>1</code> is the guard. The next 16 bits are the salt.</li>
+            <li>XOR the remaining bits with the salt, repeated every 16 bits.</li>
+            <li>Repeat until bits run out: read 1 bit (row start colour, 0 = black), then Golomb-Rice decode run
+              lengths (k = 5) until they add up to W. Paint that row with alternating colours.</li>
+            <li>Paint rows top to bottom on a white canvas, W pixels wide.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a href="https://github.com/doublescoop/img2dna" target="_blank" rel="noopener">github.com/doublescoop/img2dna</a>
+    <span>·</span>
+    <span>by @soul choi</span>
+  </footer>
+
+  <script>
+    (() => {
+      "use strict";
+
+      // ══════════════ CODEC — copied verbatim from js/bundle.js ══════════════
+      const GR_K = 5;
+      const MARKER = "TCCG";
+      const RESTRICTION_SITES = [
+        "GAATTC", "GGTACC", "CCATGG", "GAGCTC", "CGTCTC", "GAGACG",
+        "GGTCTC", "GAGACC", "GCGATG", "CATCGC", "GAAGAC", "GTCTTC",
+        "GATATC", // EcoRV (blunt cutter, palindrome)
+      ];
+
+      function grBitLength(rl, k) { const n = rl - 1; return (n >> k) + 1 + k; }
+
+      function grEncodeRuns(runs, k) {
+        const parts = [];
+        const mask = (1 << k) - 1;
+        for (const rl of runs) {
+          const n = rl - 1;
+          const q = n >> k;
+          const r = n & mask;
+          parts.push("1".repeat(q));
+          parts.push("0");
+          if (k > 0) parts.push(r.toString(2).padStart(k, "0"));
+        }
+        return parts.join("");
+      }
+
+      function grDecodeOne(bits, pos, k) {
+        let q = 0; const L = bits.length;
+        while (pos < L && bits[pos] === "1") { q++; pos++; }
+        if (pos >= L) throw new Error("EOF in unary");
+        pos++;
+        let r = 0;
+        if (k > 0) {
+          if (pos + k > L) throw new Error("EOF in remainder");
+          r = parseInt(bits.substring(pos, pos + k), 2);
+          pos += k;
+        }
+        return [((q << k) | r) + 1, pos];
+      }
+
+      function intToTrits(n) {
+        if (n === 0n) return [0];
+        const out = [];
+        while (n > 0n) { const r = Number(n % 3n); n = n / 3n; out.push(r); }
+        return out.reverse();
+      }
+      function tritsToInt(trits) {
+        let n = 0n;
+        for (const t of trits) n = n * 3n + BigInt(t);
+        return n;
+      }
+      function bitsToBigInt(bits) { return bits.length === 0 ? 0n : BigInt("0b" + bits); }
+      function bigIntToBits(n) { return n === 0n ? "0" : n.toString(2); }
+
+      const FSM = {
+        A: { 0: "C", 1: "G", 2: "T" }, C: { 0: "G", 1: "T", 2: "A" },
+        G: { 0: "T", 1: "A", 2: "C" }, T: { 0: "A", 1: "C", 2: "G" },
+      };
+      const FSM_REV = {};
+      for (const [p, m] of Object.entries(FSM)) {
+        FSM_REV[p] = {};
+        for (const [t, c] of Object.entries(m)) FSM_REV[p][c] = Number(t);
+      }
+      const FIRST_BASE = { 0: "A", 1: "C", 2: "G" };
+      const FIRST_BASE_REV = { A: 0, C: 1, G: 2 };
+
+      function tritsToDna(trits) {
+        const out = []; let prev = null;
+        for (const t of trits) {
+          const n = prev === null ? FIRST_BASE[t] : FSM[prev][t];
+          out.push(n); prev = n;
+        }
+        return out.join("");
+      }
+      function dnaToTrits(dna) {
+        const out = []; let prev = null;
+        for (const b of dna) {
+          let t;
+          if (prev === null) { t = FIRST_BASE_REV[b]; if (t === undefined) throw new Error(`bad first base ${b}`); }
+          else { t = FSM_REV[prev][b]; if (t === undefined) throw new Error(`bad transition ${prev}->${b}`); }
+          out.push(t); prev = b;
+        }
+        return out;
+      }
+
+      function xorWithSalt(bits, salt) {
+        if (salt === 0) return bits;
+        const key = salt.toString(2).padStart(16, "0");
+        const out = new Array(bits.length);
+        for (let i = 0; i < bits.length; i++) {
+          out[i] = ((bits.charCodeAt(i) - 48) ^ (key.charCodeAt(i % 16) - 48)) ? "1" : "0";
+        }
+        return out.join("");
+      }
+
+      function hasLocalDirectRepeat(dna, k = 10, window = 100) {
+        const seen = new Map();
+        const end = dna.length - k;
+        for (let i = 0; i <= end; i++) {
+          const kmer = dna.substring(i, i + k);
+          const prev = seen.get(kmer);
+          if (prev !== undefined && i - prev <= window) return true;
+          seen.set(kmer, i);
+        }
+        return false;
+      }
+
+      function hasTandemMotifRepeat(dna) {
+        for (let i = 0; i + 10 <= dna.length; i++) {
+          const m = dna[i] + dna[i + 1];
+          if (m[0] !== m[1]) {
+            if (dna.substring(i, i + 10) === m + m + m + m + m) return true;
+          }
+        }
+        for (let i = 0; i + 12 <= dna.length; i++) {
+          const m = dna.substring(i, i + 3);
+          if (dna.substring(i, i + 12) === m + m + m + m) return true;
+        }
+        return false;
+      }
+
+      function isDnaSafeMinimal(dna) {
+        let gc = 0;
+        for (const c of dna) if (c === "C" || c === "G") gc++;
+        const pct = (gc / dna.length) * 100;
+        if (pct < 40 || pct > 60) return false;
+        for (const s of RESTRICTION_SITES) if (dna.includes(s)) return false;
+        return true;
+      }
+      function isDnaSafeRelaxed(dna) {
+        if (!isDnaSafeMinimal(dna)) return false;
+        if (hasTandemMotifRepeat(dna)) return false;
+        return true;
+      }
+      function isDnaSafe(dna) {
+        if (!isDnaSafeRelaxed(dna)) return false;
+        if (hasLocalDirectRepeat(dna)) return false;
+        return true;
+      }
+
+      function buildChunkBody(chunkRows, k) {
+        const parts = [];
+        for (const { startBit, runs } of chunkRows) {
+          parts.push(startBit.toString());
+          parts.push(grEncodeRuns(runs, k));
+        }
+        return parts.join("");
+      }
+      function chunkBitsToDna(body, salt) {
+        const scrambled = xorWithSalt(body, salt);
+        const full = "1" + salt.toString(2).padStart(16, "0") + scrambled;
+        return tritsToDna(intToTrits(bitsToBigInt(full)));
+      }
+      function encodeChunkSearchSalt(chunkRows, k, maxSalts = 65536) {
+        const body = buildChunkBody(chunkRows, k);
+        for (let salt = 0; salt < maxSalts; salt++) {
+          const dna = chunkBitsToDna(body, salt);
+          if (isDnaSafe(dna)) return { dna, salt, quality: "strict" };
+        }
+        for (let salt = 0; salt < maxSalts; salt++) {
+          const dna = chunkBitsToDna(body, salt);
+          if (isDnaSafeRelaxed(dna)) return { dna, salt, quality: "relaxed" };
+        }
+        for (let salt = 0; salt < maxSalts; salt++) {
+          const dna = chunkBitsToDna(body, salt);
+          if (isDnaSafeMinimal(dna)) return { dna, salt, quality: "minimal" };
+        }
+        throw new Error("all salts failed even minimal safety");
+      }
+      function decodeChunkDna(chunkDna, W, k) {
+        if (!chunkDna) return [];
+        const trits = dnaToTrits(chunkDna);
+        const bits = bigIntToBits(tritsToInt(trits));
+        const g = bits.indexOf("1");
+        if (g < 0 || bits.length < g + 1 + 16) return [];
+        const afterGuard = bits.substring(g + 1);
+        const salt = parseInt(afterGuard.substring(0, 16), 2);
+        const scrambled = afterGuard.substring(16);
+        const body = xorWithSalt(scrambled, salt);
+
+        const rows = [];
+        let pos = 0;
+        while (pos < body.length) {
+          const startBit = Number(body[pos]); pos++;
+          const runs = []; let total = 0;
+          while (total < W) {
+            if (pos >= body.length) break;
+            try {
+              const [v, newPos] = grDecodeOne(body, pos, k);
+              if (v > W * 2) break;
+              runs.push(v); total += v; pos = newPos;
+            } catch (e) { break; }
+          }
+          rows.push({ startBit, runs });
+        }
+        return rows;
+      }
+
+      function imageToRows(bw, W, H) {
+        const rows = [];
+        for (let r = 0; r < H; r++) {
+          const off = r * W;
+          const startBit = bw[off] === 0 ? 0 : 1;
+          const runs = [];
+          let cur = bw[off], length = 0;
+          for (let c = 0; c < W; c++) {
+            const p = bw[off + c];
+            if (p === cur) length++;
+            else { runs.push(length); cur = p; length = 1; }
+          }
+          runs.push(length);
+          rows.push({ startBit, runs });
+        }
+        return rows;
+      }
+      function packRowsIntoChunks(rowsData, k, targetBodyBits) {
+        const chunks = [];
+        let cur = [], bits = 0;
+        for (const row of rowsData) {
+          const rb = 1 + row.runs.reduce((s, r) => s + grBitLength(r, k), 0);
+          if (cur.length && bits + rb > targetBodyBits) { chunks.push(cur); cur = []; bits = 0; }
+          cur.push(row); bits += rb;
+        }
+        if (cur.length) chunks.push(cur);
+        return chunks;
+      }
+      function paintRows(rows, W, H) {
+        const canvas = new Uint8Array(H * W).fill(255);
+        const n = Math.min(rows.length, H);
+        for (let r = 0; r < n; r++) {
+          const { startBit, runs } = rows[r];
+          let val = startBit === 0 ? 0 : 255, col = 0;
+          for (const rl of runs) {
+            const eff = Math.min(rl, W - col);
+            if (eff <= 0) break;
+            canvas.fill(val, r * W + col, r * W + col + eff);
+            col += eff; val = 255 - val;
+            if (col >= W) break;
+          }
+        }
+        return canvas;
+      }
+      function decodeDna(text, W, k, marker = MARKER) {
+        const stripped = text.split(/\r?\n/)
+          .filter((line) => {
+            const t = line.trimStart();
+            return !t.startsWith(">") && !t.startsWith("#");
+          })
+          .join("\n");
+        const cleaned = stripped.toUpperCase().replace(/[^ACGT]/g, "");
+        const pieces = cleaned.split(marker).filter(Boolean);
+        const allRows = [], perChunk = [];
+        for (const p of pieces) {
+          let rows = [];
+          try { rows = decodeChunkDna(p, W, k); } catch { rows = []; }
+          perChunk.push(rows.length);
+          allRows.push(...rows);
+        }
+        return { allRows, perChunk, totalBases: cleaned.length };
+      }
+
+      // ══════════════════════════════ DEMO ══════════════════════════════
+      const W = 16, H = 10;
+      const FLOWER = [
+        "................",
+        "......####......",
+        ".....#....#.....",
+        "..###.####.###..",
+        ".#...#....#...#.",
+        "..###.####.###..",
+        ".....#....#.....",
+        "......####......",
+        ".......##.......",
+        ".......##.......",
+      ];
+
+      const px = new Uint8Array(W * H).fill(255);
+      let selRow = 3, selChunk = 0, dropped = new Set();
+      let rows = [], chunks = [], encoded = [];
+
+      const $ = (id) => document.getElementById(id);
+      const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      const cut = (s, n) => (s.length > n ? s.slice(0, n) + "…" : s);
+      const colorDna = (dna) => dna.replace(/[ACGT]/g, (b) => `<span class="b${b}">${b}</span>`);
+      const gcPct = (dna) => (100 * [...dna].filter((c) => c === "C" || c === "G").length / dna.length);
+
+      function loadPattern(name) {
+        for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+          const i = r * W + c;
+          if (name === "flower") px[i] = FLOWER[r][c] === "#" ? 0 : 255;
+          else if (name === "random") px[i] = Math.random() < 0.3 ? 0 : 255;
+          else px[i] = 255;
+        }
+        dropped = new Set();
+        recompute();
+      }
+
+      function drawGrid(el, data, opts = {}) {
+        el.innerHTML = "";
+        for (let i = 0; i < W * H; i++) {
+          const d = document.createElement("div");
+          d.className = "px" + (data[i] === 0 ? " k" : "");
+          if (opts.missingFrom !== undefined && Math.floor(i / W) >= opts.missingFrom) d.classList.add("miss");
+          if (opts.sel !== undefined && Math.floor(i / W) === opts.sel) d.classList.add("sel");
+          if (opts.edit) d.addEventListener("click", () => { px[i] = px[i] === 0 ? 255 : 0; recompute(); });
+          el.appendChild(d);
+        }
+      }
+
+      function runBar(row) {
+        let black = row.startBit === 0;
+        return row.runs.map((rl) => {
+          const s = `<i style="width:${(rl / W) * 100}%;background:${black ? "var(--ink)" : "white"}"></i>`;
+          black = !black; return s;
+        }).join("");
+      }
+
+      function renderRamp() {
+        const c = parseFloat($("pp-c").value), t = parseInt($("pp-t").value, 10);
+        $("pp-c-val").textContent = c; $("pp-t-val").textContent = t;
+        const grays = Array.from({ length: 16 }, (_, i) => i * 17);
+        const boosted = grays.map((g) => Math.max(0, Math.min(255, (g - 128) * c + 128)));
+        const bw = boosted.map((g) => (g < t ? 0 : 255));
+        const line = (label, vals) => `<span class="lbl">${label}</span>` +
+          vals.map((v) => `<div class="sw" style="background:rgb(${v},${v},${v});border:1px solid var(--line)"></div>`).join("");
+        $("ramp").innerHTML = line("gray", grays) + line("contrast", boosted) + line("threshold", bw);
+      }
+
+      function failReasons(dna) {
+        const out = [];
+        const gc = gcPct(dna);
+        if (gc < 40 || gc > 60) out.push(`GC ${gc.toFixed(0)}%`);
+        const site = RESTRICTION_SITES.find((s) => dna.includes(s));
+        if (site) out.push(`site ${site}`);
+        if (hasTandemMotifRepeat(dna)) out.push("tandem repeat");
+        if (hasLocalDirectRepeat(dna)) out.push("10-mer repeat");
+        return out;
+      }
+
+      function recompute() {
+        rows = imageToRows(px, W, H);
+        chunks = packRowsIntoChunks(rows, GR_K, parseInt($("tb").value, 10));
+        encoded = chunks.map((ch) => {
+          const body = buildChunkBody(ch, GR_K);
+          try { return { body, ...encodeChunkSearchSalt(ch, GR_K) }; }
+          catch (e) { return { body, error: e.message }; }
+        });
+        if (selChunk >= chunks.length) selChunk = 0;
+        dropped = new Set([...dropped].filter((i) => i < chunks.length));
+        render();
+      }
+
+      function chunkPills(el, onPick, opts = {}) {
+        el.innerHTML = "";
+        chunks.forEach((_, i) => {
+          const b = document.createElement("button");
+          b.className = "pill" + (opts.toggle ? (dropped.has(i) ? " off" : " on") : (i === selChunk ? " on" : ""));
+          b.textContent = `chunk ${i}`;
+          b.addEventListener("click", () => onPick(i));
+          el.appendChild(b);
+        });
+      }
+
+      function render() {
+        // 2
+        drawGrid($("grid"), px, { edit: true, sel: selRow });
+        const black = px.filter((v) => v === 0).length;
+        $("s2-stat").innerHTML = `W = <b>${W}</b>, H = <b>${H}</b> → <b>${W * H}</b> pixels, ${black} black.`;
+
+        // 3
+        $("rows").innerHTML = rows.map((row, r) =>
+          `<div class="rowline${r === selRow ? " sel" : ""}" data-r="${r}">
+            <span>row ${r}</span>
+            <span><span class="st">${row.startBit}</span> [${row.runs.join(", ")}]</span>
+            <span class="bar">${runBar(row)}</span>
+          </div>`).join("");
+        $("rows").querySelectorAll(".rowline").forEach((el) =>
+          el.addEventListener("click", () => { selRow = Number(el.dataset.r); render(); }));
+
+        // 4
+        const row = rows[selRow];
+        let isBlack = row.startBit === 0;
+        $("s4-title").textContent = `Row ${selRow}`;
+        $("s4-table").innerHTML =
+          `<thead><tr><th>run</th><th>colour</th><th>n</th><th>q</th><th>r</th><th>code</th></tr></thead><tbody>` +
+          row.runs.map((L) => {
+            const n = L - 1, q = n >> GR_K, r = n & 31;
+            const s = `<tr><td>${L}</td><td>${isBlack ? "black" : "white"}</td><td>${n}</td><td>${q}</td><td>${r}</td>
+              <td><span class="q">${"1".repeat(q)}0</span><span class="r">${r.toString(2).padStart(GR_K, "0")}</span></td></tr>`;
+            isBlack = !isBlack; return s;
+          }).join("") + "</tbody>";
+        $("s4-bits").innerHTML = `<span class="st">${row.startBit}</span> ` + row.runs.map((L) => {
+          const n = L - 1, q = n >> GR_K;
+          return `<span class="q">${"1".repeat(q)}0</span><span class="r">${(n & 31).toString(2).padStart(GR_K, "0")}</span>`;
+        }).join(" ");
+        const rowBits = 1 + row.runs.reduce((s, r) => s + grBitLength(r, GR_K), 0);
+        const allBits = rows.reduce((s, rw) => s + 1 + rw.runs.reduce((a, r) => a + grBitLength(r, GR_K), 0), 0);
+        $("s4-stat").innerHTML = `This row: <b>${rowBits}</b> bits (vs ${W} raw pixels). Whole image: <b>${allBits}</b> bits vs ${W * H} raw.
+          On a drawing this small the code is actually bigger than raw pixels. Real images at W = 200 have long runs and compress well.`;
+
+        // 5
+        $("tb-val").textContent = $("tb").value;
+        let rowStart = 0;
+        $("chunks").innerHTML = chunks.map((ch, i) => {
+          const bits = encoded[i].body.length;
+          const s = `<div class="chunkrow"><span>chunk ${i}</span>
+            <div class="chunkbar" style="width:${Math.max(18, Math.min(100, (bits / parseInt($("tb").value, 10)) * 100))}%">
+            rows ${rowStart}–${rowStart + ch.length - 1} · ${bits} bits</div></div>`;
+          rowStart += ch.length; return s;
+        }).join("");
+
+        // 6
+        chunkPills($("chunk-pills-6"), (i) => { selChunk = i; render(); });
+        const e = encoded[selChunk];
+        if (e.error) { $("s6-detail").textContent = e.error; return; }
+        const saltBits = e.salt.toString(2).padStart(16, "0");
+        const scrambled = xorWithSalt(e.body, e.salt);
+        const keyLine = saltBits.repeat(Math.ceil(e.body.length / 16)).slice(0, e.body.length);
+        $("s6-detail").innerHTML =
+          `<div><b>body</b>&nbsp;&nbsp;&nbsp;&nbsp;${e.body}</div>
+           <div><b>salt key</b> <span class="s">${keyLine}</span></div>
+           <div><b>XOR</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${scrambled}</div>
+           <div style="margin-top:8px;"><b>full</b>&nbsp;&nbsp;&nbsp;&nbsp;<span class="g">1</span><span class="s">${saltBits}</span>${scrambled}</div>
+           <div class="stat">salt = <b>${e.salt}</b> (found in step 8) · ${1 + 16 + e.body.length} bits total = 17 header + ${e.body.length} body</div>`;
+
+        // 7
+        chunkPills($("chunk-pills-7"), (i) => { selChunk = i; render(); });
+        const full = "1" + saltBits + scrambled;
+        const N = bitsToBigInt(full);
+        const trits = intToTrits(N);
+        const dec = N.toString();
+        $("s7-num").textContent = cut(dec, 90) + (dec.length > 90 ? ` (${dec.length} digits)` : "");
+        $("s7-trits").textContent = trits.join("");
+        $("s7-dna").innerHTML = colorDna(e.dna);
+        $("s7-stat").innerHTML = `${full.length} bits → <b>${trits.length}</b> trits → <b>${e.dna.length}</b> bases
+          (≈ ${(full.length / e.dna.length).toFixed(2)} bits per base; the ceiling is log₂3 ≈ 1.58).`;
+        let prev = null;
+        $("s7-walk").innerHTML = trits.slice(0, 8).map((t) => {
+          const next = prev === null ? FIRST_BASE[t] : FSM[prev][t];
+          const s = `${prev === null ? "(start)" : prev} + trit ${t} → <span class="b${next}">${next}</span>`;
+          prev = next; return s;
+        }).join("<br>") + "<br>…";
+
+        // 8
+        $("sites").textContent = RESTRICTION_SITES.join(" ");
+        $("s8-table").innerHTML =
+          `<thead><tr><th>chunk</th><th>salt</th><th>salts tried</th><th>passed</th><th>GC</th><th>length</th><th>why salt 0 failed</th></tr></thead><tbody>` +
+          encoded.map((en, i) => {
+            if (en.error) return `<tr><td>${i}</td><td colspan="6">${esc(en.error)}</td></tr>`;
+            const passes = { strict: 0, relaxed: 1, minimal: 2 }[en.quality];
+            const tried = passes * 65536 + en.salt + 1;
+            const why = en.salt === 0 && en.quality === "strict" ? "—" : failReasons(chunkBitsToDna(en.body, 0)).join(", ") || "—";
+            return `<tr><td>${i}</td><td>${en.salt}</td><td>${tried.toLocaleString()}</td>
+              <td><span class="tier ${en.quality}">${en.quality}</span></td>
+              <td>${gcPct(en.dna).toFixed(1)}%</td><td>${en.dna.length}</td><td>${why}</td></tr>`;
+          }).join("") + "</tbody>";
+
+        // 9
+        const dnaString = encoded.map((en) => MARKER + en.dna).join("");
+        const header = `# W=${W} GR_K=${GR_K} MARKER=${MARKER} H=${H} chunks=${encoded.length}`;
+        $("s9-string").innerHTML = `<span class="dim">${esc(header)}</span><br>` +
+          encoded.map((en) => `<span class="mk">${MARKER}</span>${colorDna(en.dna)}`).join("");
+        $("s9-fasta").innerHTML = `<span class="dim">${esc(header)}</span>\n` + encoded.map((en, i) =>
+          `<span class="dim">&gt;chunk_${i} salt=${en.salt} rows=${chunks[i].length} quality=${en.quality}</span>\n<span class="mk">${MARKER}</span>${colorDna(en.dna)}`).join("\n");
+        $("s9-stat").innerHTML = `<b>${dnaString.length}</b> bases in <b>${encoded.length}</b> chunks ·
+          ${(W * H / dnaString.length).toFixed(2)} pixels per base.`;
+
+        // 10
+        chunkPills($("chunk-pills-10"), (i) => {
+          if (dropped.has(i)) dropped.delete(i); else dropped.add(i);
+          render();
+        }, { toggle: true });
+        const kept = encoded.filter((_, i) => !dropped.has(i)).map((en) => MARKER + en.dna).join("");
+        const { allRows } = decodeDna(kept, W, GR_K);
+        const out = paintRows(allRows, W, H);
+        drawGrid($("grid-out"), out, { missingFrom: Math.min(allRows.length, H) });
+        const exact = allRows.length === H && out.every((v, i) => v === px[i]);
+        $("s10-stat").innerHTML = `Decoded <b>${allRows.length}</b> of ${H} rows from ${kept.length} bases.` +
+          (exact ? " Identical to the original ✓" : " Striped rows had no data.");
+      }
+
+      document.querySelectorAll("[data-pattern]").forEach((b) =>
+        b.addEventListener("click", () => loadPattern(b.dataset.pattern)));
+      $("tb").addEventListener("input", recompute);
+      $("pp-c").addEventListener("input", renderRamp);
+      $("pp-t").addEventListener("input", renderRamp);
+
+      renderRamp();
+      loadPattern("flower");
+    })();
+  </script>
+</body>
+
+</html>
